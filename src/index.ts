@@ -110,10 +110,12 @@ class TuyaWebPlatform {
     const uuid = this.api.hap.uuid.generate(device.id);
     const homebridgeAccessory = this.accessories.get(uuid);
 
+    let config = {};
     // Is device type overruled in config defaults?
     if (this.config.defaults) {
       for (const def of this.config.defaults) {
         if (def.id === device.id) {
+          config = def.config;
           deviceType = def.device_type || deviceType;
           this.log('Device type is overruled in config to: ', deviceType);
         }
@@ -131,7 +133,8 @@ class TuyaWebPlatform {
         deviceAccessory = new DimmerAccessory(
           this,
           homebridgeAccessory,
-          device
+          device,
+          config
         );
         this.accessories.set(uuid, deviceAccessory.homebridgeAccessory);
         break;
