@@ -29,6 +29,7 @@
   "dependencies": {
     "hap-nodejs": "^0.5.7",
     "querystring": "^0.2.0",
+    "ramda": "^0.27.0",
     "request": "^2.88.0",
     "request-promise": "^4.2.5"
   },

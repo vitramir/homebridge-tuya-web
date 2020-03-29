@@ -9,15 +9,57 @@ import TuyaWebApi from './tuyawebapi';
 import { BaseAccessory } from './base_accessory';
 import { pifyGetEvt, pifySetEvt } from './promisifyEvent';
 import { TuyaDevice } from './types';
+import * as R from 'ramda';
+import {
+  Transformation,
+  TransformationType,
+  applyTransformations,
+} from './transformations';
+
+type DimmerConfig = {
+  useCache?: boolean;
+  toTuyaBrightness?: Transformation[];
+  fromTuyaBrightness?: Transformation[];
+};
+
+const defaultConfig = <DimmerConfig>{
+  useCache: true,
+  toTuyaBrightness: [],
+  fromTuyaBrightness: [
+    {
+      type: TransformationType.parseInt,
+    },
+    {
+      type: TransformationType.divide,
+      value: 255,
+    },
+    {
+      type: TransformationType.multiply,
+      value: 100,
+    },
+    {
+      type: TransformationType.floor,
+    },
+  ],
+};
 
 export class DimmerAccessory extends BaseAccessory {
-  constructor(platform, homebridgeAccessory, deviceConfig: TuyaDevice) {
+  private config: DimmerConfig;
+
+  constructor(
+    platform,
+    homebridgeAccessory,
+    deviceConfig: TuyaDevice,
+    config: DimmerConfig
+  ) {
     super(
       platform,
       homebridgeAccessory,
       deviceConfig,
       Accessory.Categories.LIGHTBULB
     );
+
+    this.config = R.merge(defaultConfig, config);
 
     // Characteristic.On
     this.service
@@ -26,7 +68,7 @@ export class DimmerAccessory extends BaseAccessory {
         CharacteristicEventTypes.GET,
         pifyGetEvt(async () => {
           // Retrieve state from cache
-          if (this.hasValidCache()) {
+          if (this.config.useCache && this.hasValidCache()) {
             return this.getCachedState(Characteristic.On);
           } else {
             // Retrieve device state from Tuya Web API
@@ -92,7 +134,7 @@ export class DimmerAccessory extends BaseAccessory {
         CharacteristicEventTypes.GET,
         pifyGetEvt(async () => {
           // Retrieve state from cache
-          if (this.hasValidCache()) {
+          if (this.config.useCache && this.hasValidCache()) {
             return this.getCachedState(Characteristic.Brightness);
           } else {
             // Retrieve device state from Tuya Web API
@@ -101,8 +143,9 @@ export class DimmerAccessory extends BaseAccessory {
                 this.deviceId
               );
 
-              const percentage = Math.floor(
-                (parseInt(data.brightness) / 255) * 100
+              const percentage = applyTransformations(
+                this.config.fromTuyaBrightness,
+                data.brightness
               );
               this.log.debug(
                 '[GET][%s] Characteristic.Brightness: %s (%s percent)',
@@ -135,7 +178,10 @@ export class DimmerAccessory extends BaseAccessory {
               this.deviceId,
               'brightnessSet',
               {
-                value: percentage,
+                value: applyTransformations(
+                  this.config.toTuyaBrightness,
+                  percentage as number
+                ),
               }
             );
 
@@ -171,8 +217,9 @@ export class DimmerAccessory extends BaseAccessory {
       this.setCachedState(Characteristic.On, state);
     }
     if (data.percentage | data.brightness) {
-      const percentage = Math.floor(
-        (parseInt((data.percentage || data.brightness).toString()) / 255) * 100
+      const percentage = applyTransformations(
+        this.config.fromTuyaBrightness,
+        data.percentage || data.brightness
       );
       this.service
         .getCharacteristic(Characteristic.Brightness)
