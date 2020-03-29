@@ -47,6 +47,9 @@ export abstract class BaseAccessory {
       case Accessory.Categories.FAN:
         this.serviceType = Service.Fanv2;
         break;
+      case Accessory.Categories.WINDOW_COVERING:
+        this.serviceType = Service.WindowCovering;
+        break;
       default:
         this.serviceType = Service.AccessoryInformation;
     }

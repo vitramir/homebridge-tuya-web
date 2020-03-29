@@ -3,6 +3,7 @@ import { LightAccessory } from './light_accessory';
 import { OutletAccessory } from './outlet_accessory';
 import TuyaWebApi from './tuyawebapi';
 import { TuyaDevice, PlatformAccessory } from './types';
+import { WindowCoveringAccessory } from './window_covering';
 
 export default function(homebridge) {
   homebridge.registerPlatform(
@@ -140,11 +141,19 @@ class TuyaWebPlatform {
         break;
       case 'switch':
       case 'outlet':
-      case 'cover':
         deviceAccessory = new OutletAccessory(
           this,
           homebridgeAccessory,
           device
+        );
+        this.accessories.set(uuid, deviceAccessory.homebridgeAccessory);
+        break;
+      case 'cover':
+        deviceAccessory = new WindowCoveringAccessory(
+          this,
+          homebridgeAccessory,
+          device,
+          config
         );
         this.accessories.set(uuid, deviceAccessory.homebridgeAccessory);
         break;
