@@ -82,7 +82,7 @@ export class DimmerAccessory extends BaseAccessory {
                 data.state
               );
               this.setCachedState(Characteristic.On, data.state);
-              return data.state;
+              return Boolean(data.state);
             } catch (error) {
               this.log.error(
                 '[GET][%s] Characteristic.On Error: %s',
