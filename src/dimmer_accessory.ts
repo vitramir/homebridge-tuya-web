@@ -76,13 +76,14 @@ export class DimmerAccessory extends BaseAccessory {
               const data = await this.platform.tuyaWebApi.getDeviceState(
                 this.deviceId
               );
+              const state = data.state === 'true';
               this.log.debug(
                 '[GET][%s] Characteristic.On: %s',
                 this.homebridgeAccessory.displayName,
                 data.state
               );
-              this.setCachedState(Characteristic.On, data.state);
-              return Boolean(data.state);
+              this.setCachedState(Characteristic.On, state);
+              return state;
             } catch (error) {
               this.log.error(
                 '[GET][%s] Characteristic.On Error: %s',
