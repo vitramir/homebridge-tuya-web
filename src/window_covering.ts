@@ -3,6 +3,7 @@ import {
   Service,
   Characteristic,
   CharacteristicEventTypes,
+  CharacteristicValue,
 } from 'hap-nodejs';
 
 import TuyaWebApi from './tuyawebapi';
@@ -43,6 +44,14 @@ const defaultConfig = <WindowCoveringConfig>{
   ],
 };
 
+enum DeviceState {
+  opening = 1,
+  closing = 2,
+  stopped = 3,
+  open = 4, //virtual state based on cache
+  closed = 5, //virtual state based on cache
+}
+
 export class WindowCoveringAccessory extends BaseAccessory {
   private config: WindowCoveringConfig;
 
@@ -66,35 +75,40 @@ export class WindowCoveringAccessory extends BaseAccessory {
       .on(
         CharacteristicEventTypes.GET,
         pifyGetEvt(async () => {
-          const data = await this.platform.tuyaWebApi.getDeviceState(
-            this.deviceId
-          );
-          if (data.state === 1) {
+          let state = await this.getState();
+
+          if (state === DeviceState.opening || state === DeviceState.open) {
             return 100;
-          } else if (data.state === 2) {
+          } else if (
+            state === DeviceState.closing ||
+            state === DeviceState.closed
+          ) {
             return 0;
-          } else if (data.state === 3) {
+          } else if (state === DeviceState.stopped) {
             return 50;
           }
         })
       )
       .on(
         CharacteristicEventTypes.SET,
-        pifySetEvt(async percentage => {
+        pifySetEvt(async (percentage) => {
           try {
             if (percentage === 50) {
+              this.updateCache(DeviceState.stopped);
               await this.platform.tuyaWebApi.setDeviceState(
                 this.deviceId,
                 'startStop',
                 { value: 0 }
               );
             } else if (percentage === 100) {
+              this.updateCache(DeviceState.opening);
               await this.platform.tuyaWebApi.setDeviceState(
                 this.deviceId,
                 'turnOnOff',
                 { value: 1 }
               );
             } else if (percentage === 0) {
+              this.updateCache(DeviceState.closing);
               await this.platform.tuyaWebApi.setDeviceState(
                 this.deviceId,
                 'turnOnOff',
@@ -110,14 +124,17 @@ export class WindowCoveringAccessory extends BaseAccessory {
     this.service.getCharacteristic(Characteristic.PositionState).on(
       CharacteristicEventTypes.GET,
       pifyGetEvt(async () => {
-        const data = await this.platform.tuyaWebApi.getDeviceState(
-          this.deviceId
-        );
-        if (data.state === 1) {
+        let state = await this.getState();
+
+        if (state === DeviceState.opening) {
           return Characteristic.PositionState.INCREASING;
-        } else if (data.state === 2) {
+        } else if (state === DeviceState.closing) {
           return Characteristic.PositionState.DECREASING;
-        } else if (data.state === 3) {
+        } else if (
+          state === DeviceState.closed ||
+          state === DeviceState.open ||
+          state === DeviceState.closed
+        ) {
           return Characteristic.PositionState.STOPPED;
         }
       })
@@ -126,18 +143,51 @@ export class WindowCoveringAccessory extends BaseAccessory {
     this.service.getCharacteristic(Characteristic.CurrentPosition).on(
       CharacteristicEventTypes.GET,
       pifyGetEvt(async () => {
-        const data = await this.platform.tuyaWebApi.getDeviceState(
-          this.deviceId
-        );
-        if (data.state === 1) {
+        let state = await this.getState();
+
+        if (state === DeviceState.opening || state === DeviceState.open) {
           return 100;
-        } else if (data.state === 2) {
+        } else if (
+          state === DeviceState.closing ||
+          state === DeviceState.closed
+        ) {
           return 0;
-        } else if (data.state === 3) {
+        } else if (state === DeviceState.stopped) {
           return 50;
         }
       })
     );
+  }
+
+  updateCache(state: DeviceState) {
+    let prevState: CharacteristicValue = DeviceState.stopped;
+    if (this.hasValidCache()) {
+      prevState = this.getCachedState(Characteristic.PositionState);
+    }
+    let newState = state;
+    if (
+      state === DeviceState.stopped &&
+      (prevState === DeviceState.opening || prevState === DeviceState.open)
+    ) {
+      newState = DeviceState.open;
+    } else if (
+      state === DeviceState.stopped &&
+      (prevState === DeviceState.closing || prevState === DeviceState.closed)
+    ) {
+      newState = DeviceState.closed;
+    }
+    this.setCachedState(Characteristic.PositionState, newState);
+  }
+
+  async getState() {
+    let state: CharacteristicValue;
+    if (this.config.useCache && this.hasValidCache()) {
+      state = this.getCachedState(Characteristic.PositionState);
+    } else {
+      const data = await this.platform.tuyaWebApi.getDeviceState(this.deviceId);
+      state = data.state;
+    }
+    return state;
   }
 
   async updateState(data: TuyaDevice['data']) {
@@ -147,5 +197,9 @@ export class WindowCoveringAccessory extends BaseAccessory {
       this.homebridgeAccessory.displayName,
       data
     );
+    this.updateCache(Number(data.state));
+    this.service
+      .getCharacteristic(Characteristic.PositionState)
+      .updateValue(this.getCachedState(Characteristic.PositionState));
   }
 }
