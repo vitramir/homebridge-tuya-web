@@ -5,7 +5,7 @@ import TuyaWebApi from './tuyawebapi';
 import { TuyaDevice, PlatformAccessory } from './types';
 import { WindowCoveringAccessory } from './window_covering';
 
-export default function(homebridge) {
+export default function (homebridge) {
   homebridge.registerPlatform(
     'homebridge-tuya-web',
     'TuyaWebPlatform',
@@ -127,7 +127,12 @@ class TuyaWebPlatform {
     let deviceAccessory;
     switch (deviceType) {
       case 'light':
-        deviceAccessory = new LightAccessory(this, homebridgeAccessory, device);
+        deviceAccessory = new LightAccessory(
+          this,
+          homebridgeAccessory,
+          device,
+          config
+        );
         this.accessories.set(uuid, deviceAccessory.homebridgeAccessory);
         break;
       case 'dimmer':
@@ -192,7 +197,7 @@ class TuyaWebPlatform {
     // accessory.updateReachability()
     accessory.reachable = true;
 
-    accessory.on('identify', function(paired, callback) {
+    accessory.on('identify', function (paired, callback) {
       this.log.debug('[IDENTIFY][%s]', accessory.displayName);
       callback();
     });
