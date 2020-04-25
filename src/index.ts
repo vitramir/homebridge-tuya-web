@@ -1,5 +1,6 @@
 import { DimmerAccessory } from './dimmer_accessory';
 import { LightAccessory } from './light_accessory';
+import { LightTemperatureAccessory } from './light_temperature_accessory';
 import { OutletAccessory } from './outlet_accessory';
 import TuyaWebApi from './tuyawebapi';
 import { TuyaDevice, PlatformAccessory } from './types';
@@ -127,6 +128,15 @@ class TuyaWebPlatform {
     switch (deviceType) {
       case 'light':
         deviceAccessory = new LightAccessory(
+          this,
+          homebridgeAccessory,
+          device,
+          config
+        );
+        this.accessories.set(uuid, deviceAccessory.homebridgeAccessory);
+        break;
+      case 'light_temperature':
+        deviceAccessory = new LightTemperatureAccessory(
           this,
           homebridgeAccessory,
           device,

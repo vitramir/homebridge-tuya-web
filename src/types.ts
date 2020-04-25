@@ -11,6 +11,7 @@ export type TuyaDevice = {
       saturation?: number;
       hue?: number;
     };
+    color_temp: number;
   };
   name: string;
   icon: string;
