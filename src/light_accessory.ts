@@ -236,12 +236,12 @@ export class LightAccessory extends BaseAccessory {
         try {
           let color: Color = (await this.getState()).color;
           this.log.debug(
-            '[SET][%s] Characteristic.Saturation: (%s) %s percent',
+            '[SET][%s] Characteristic.Hue: (%s) %s percent',
             this.homebridgeAccessory.displayName,
-            color.saturation,
+            color.hue,
             hue
           );
-          color.saturation = hue;
+          color.hue = hue;
           await this.updateColor(color);
           callback();
         } catch (err) {
@@ -259,6 +259,7 @@ export class LightAccessory extends BaseAccessory {
         hue: defaultHue,
       };
 
+      // this.invalidateCache();
       if (!this.hasValidCache()) {
         const data = await this.platform.tuyaWebApi.getDeviceState(
           this.deviceId
@@ -305,9 +306,10 @@ export class LightAccessory extends BaseAccessory {
       );
     } catch (err) {
       this.log.error(
-        '[SET][%s] Characteristic.Saturation Error: %s',
+        '[SET][%s] Update color Error: %s, Color: %s',
         this.homebridgeAccessory.displayName,
-        err
+        err,
+        JSON.stringify(color)
       );
       this.invalidateCache();
       throw err;
@@ -328,9 +330,9 @@ export class LightAccessory extends BaseAccessory {
       this.setCachedState(Characteristic.On, isOn);
     }
 
-    let brightness = null,
-      saturation = null,
-      hue = null;
+    let brightness = defaultBrightness,
+      saturation = defaultSaturation,
+      hue = defaultHue;
     if (data.color) {
       brightness = applyTransformations(
         this.config.fromTuyaColorBrightness,
@@ -350,17 +352,17 @@ export class LightAccessory extends BaseAccessory {
       );
     }
 
+    this.setCachedState(Characteristic.Brightness, brightness);
     this.service
       .getCharacteristic(Characteristic.Brightness)
       .updateValue(brightness);
-    this.setCachedState(Characteristic.Saturation, brightness);
 
+    this.setCachedState(Characteristic.Saturation, saturation);
     this.service
       .getCharacteristic(Characteristic.Saturation)
       .updateValue(saturation);
-    this.setCachedState(Characteristic.Saturation, saturation);
 
-    this.service.getCharacteristic(Characteristic.Hue).updateValue(hue);
     this.setCachedState(Characteristic.Hue, hue);
+    this.service.getCharacteristic(Characteristic.Hue).updateValue(hue);
   }
 }
